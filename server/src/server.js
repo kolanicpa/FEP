@@ -2,10 +2,6 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import dotenv from 'dotenv'
-import './config/firebase.js'
-import performanceRoutes from './routes/performances.js'
-import ticketRoutes from './routes/tickets.js'
-import authRoutes from './routes/auth.js'
 
 dotenv.config()
 
@@ -17,10 +13,27 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
 app.use(helmet())
 app.use(
   cors({
-    origin: FRONTEND_URL || '*',
+    origin: FRONTEND_URL,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   }),
 )
 app.use(express.json({ limit: '10mb' }))
+
+// Import Firebase and routes after middleware setup
+let firebaseInitialized = false
+try {
+  await import('./config/firebase.js')
+  firebaseInitialized = true
+} catch (error) {
+  console.error('Firebase initialization failed:', error.message)
+}
+
+// Import routes
+const performanceRoutes = (await import('./routes/performances.js')).default
+const ticketRoutes = (await import('./routes/tickets.js')).default
+const authRoutes = (await import('./routes/auth.js')).default
 
 // Routes
 app.use('/api/v1/auth', authRoutes)
@@ -29,7 +42,11 @@ app.use('/api/v1/tickets', ticketRoutes)
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok' })
+  res.json({
+    status: 'ok',
+    firebase: firebaseInitialized ? 'connected' : 'failed',
+    timestamp: new Date().toISOString()
+  })
 })
 
 // Error handler
