@@ -58,9 +58,10 @@ class TicketModel {
   }
 
   async getByPerformance(performanceId) {
+    // Query without orderBy - Firebase indexes not needed
+    // Sort in memory for immediate functionality
     const snapshot = await ticketsCollection
       .where('performance_id', '==', performanceId)
-      .orderBy('created_at', 'desc')
       .get()
 
     const tickets = await Promise.all(
@@ -77,7 +78,12 @@ class TicketModel {
       })
     )
 
-    return tickets
+    // Sort by created_at in descending order (newest first)
+    return tickets.sort((a, b) => {
+      const aTime = a.created_at?._seconds || 0
+      const bTime = b.created_at?._seconds || 0
+      return bTime - aTime
+    })
   }
 
   async checkDuplicate(performanceId, attendeeId) {
@@ -106,9 +112,9 @@ class TicketModel {
   }
 
   async getByUser(userId) {
+    // Query without orderBy - Firebase indexes not needed
     const snapshot = await ticketsCollection
       .where('attendee_id', '==', userId)
-      .orderBy('created_at', 'desc')
       .get()
 
     const tickets = await Promise.all(
@@ -135,11 +141,14 @@ class TicketModel {
       })
     )
 
+    // Sort by start_date and created_at in memory
     return tickets.sort((a, b) => {
       if (a.start_date !== b.start_date) {
         return new Date(b.start_date) - new Date(a.start_date)
       }
-      return new Date(b.created_at) - new Date(a.created_at)
+      const aTime = a.created_at?._seconds || 0
+      const bTime = b.created_at?._seconds || 0
+      return bTime - aTime
     })
   }
 
