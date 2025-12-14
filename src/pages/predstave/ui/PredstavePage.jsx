@@ -1,49 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card } from '@/shared/ui/Card'
 import { Button, Input, Label } from '@/shared/ui/shadcn'
-
-const initialPerformances = [
-  {
-    id: 1,
-    name: 'Hamlet',
-    status: 'Aktivna',
-    startDate: '2024-03-12',
-    satnica: '19:30',
-    category: 'Tragedija',
-    tickets: 320,
-    qrCode: '',
-  },
-  {
-    id: 2,
-    name: 'The Cherry Orchard',
-    status: 'Pauzirana',
-    startDate: '2024-05-08',
-    satnica: '20:00',
-    category: 'Drama',
-    tickets: 280,
-    qrCode: '',
-  },
-  {
-    id: 3,
-    name: 'Waiting for Godot',
-    status: 'Aktivna',
-    startDate: '2024-06-20',
-    satnica: '18:30',
-    category: 'Drama',
-    tickets: 140,
-    qrCode: '',
-  },
-  {
-    id: 4,
-    name: 'A Streetcar Named Desire',
-    status: 'Pauzirana',
-    startDate: '2024-07-02',
-    satnica: '21:00',
-    category: 'Klasik',
-    tickets: 200,
-    qrCode: '',
-  },
-]
+import { performanceService } from '@/shared/api/performanceService'
 
 const emptyForm = {
   name: '',
@@ -56,10 +14,43 @@ const emptyForm = {
 }
 
 const PredstavePage = () => {
-  const [performances, setPerformances] = useState(initialPerformances)
+  const [performances, setPerformances] = useState([])
   const [formValues, setFormValues] = useState(emptyForm)
   const [modalState, setModalState] = useState({ open: false, mode: 'add', editingId: null })
   const [filterYear, setFilterYear] = useState('all')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    loadPerformances()
+  }, [])
+
+  const loadPerformances = async () => {
+    try {
+      setLoading(true)
+      const data = await performanceService.getAll()
+
+      // Transform Firebase data to match UI format
+      const transformedData = data.map(perf => ({
+        id: perf.id,
+        name: perf.name,
+        status: perf.status,
+        startDate: perf.start_date,
+        satnica: perf.satnica,
+        category: perf.category,
+        tickets: perf.total_tickets,
+        qrCode: perf.qr_code || ''
+      }))
+
+      setPerformances(transformedData)
+      setError(null)
+    } catch (err) {
+      setError(err.message)
+      console.error('Failed to load performances:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const openAddModal = () => {
     setFormValues(emptyForm)
@@ -108,41 +99,56 @@ const PredstavePage = () => {
     setFormValues((prev) => ({ ...prev, qrCode: buildQrCode(qrPayload) }))
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
 
-    if (modalState.mode === 'edit' && modalState.editingId) {
-      setPerformances((prev) =>
-        prev.map((row) =>
-          row.id === modalState.editingId
-            ? {
-                ...row,
-                ...formValues,
-                tickets: Number(formValues.tickets) || 0,
-                qrCode:
-                  formValues.qrCode ||
-                  buildQrCode({ ...formValues, tickets: Number(formValues.tickets) || 0 }),
-                id: row.id,
-              }
-            : row,
-        ),
-      )
-    } else {
-      const nextId = performances.length ? Math.max(...performances.map((row) => row.id)) + 1 : 1
-      setPerformances((prev) => [
-        ...prev,
-        {
-          ...formValues,
-          id: nextId,
-          tickets: Number(formValues.tickets) || 0,
-          qrCode:
-            formValues.qrCode ||
-            buildQrCode({ ...formValues, tickets: Number(formValues.tickets) || 0 }),
-        },
-      ])
-    }
+    try {
+      setLoading(true)
 
-    closeModal()
+      if (modalState.mode === 'edit' && modalState.editingId) {
+        // TODO: Implement update API endpoint
+        setPerformances((prev) =>
+          prev.map((row) =>
+            row.id === modalState.editingId
+              ? {
+                  ...row,
+                  ...formValues,
+                  tickets: Number(formValues.tickets) || 0,
+                  qrCode:
+                    formValues.qrCode ||
+                    buildQrCode({ ...formValues, tickets: Number(formValues.tickets) || 0 }),
+                  id: row.id,
+                }
+              : row,
+          ),
+        )
+      } else {
+        const newPerformance = await performanceService.create(formValues)
+
+        // Transform Firebase data to match UI format
+        const uiPerformance = {
+          id: newPerformance.id,
+          name: newPerformance.name,
+          status: newPerformance.status,
+          startDate: newPerformance.start_date,
+          satnica: newPerformance.satnica,
+          category: newPerformance.category,
+          tickets: newPerformance.total_tickets,
+          qrCode: formValues.qrCode || buildQrCode({ ...formValues, tickets: newPerformance.total_tickets })
+        }
+
+        setPerformances((prev) => [...prev, uiPerformance])
+      }
+
+      closeModal()
+      setError(null)
+    } catch (err) {
+      setError(err.message)
+      console.error('Failed to save performance:', err)
+      alert('Failed to save: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleDelete = (id) => {
@@ -346,14 +352,14 @@ const PredstavePage = () => {
                 </div>
 
                 <div className="form-actions modal-actions">
-                  <Button variant="outline" type="button" onClick={handleGenerateQr}>
+                  <Button variant="outline" type="button" onClick={handleGenerateQr} disabled={loading}>
                     Generiši QR
                   </Button>
-                  <Button variant="ghost" type="button" onClick={closeModal}>
+                  <Button variant="ghost" type="button" onClick={closeModal} disabled={loading}>
                     Otkaži
                   </Button>
-                  <Button type="submit">
-                    {modalState.mode === 'edit' ? 'Sačuvaj izmene' : 'Dodaj predstavu'}
+                  <Button type="submit" disabled={loading}>
+                    {loading ? 'Čuvanje...' : modalState.mode === 'edit' ? 'Sačuvaj izmene' : 'Dodaj predstavu'}
                   </Button>
                 </div>
               </form>

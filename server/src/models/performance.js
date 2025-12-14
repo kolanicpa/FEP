@@ -1,53 +1,103 @@
-import pool from '../config/database.js'
+import db from '../config/firebase.js'
+import { FieldValue } from 'firebase-admin/firestore'
+
+const performancesCollection = db.collection('performances')
 
 class PerformanceModel {
   async getAll() {
-    const result = await pool.query(
-      'SELECT * FROM performances ORDER BY start_date ASC'
-    )
-    return result.rows
+    const snapshot = await performancesCollection
+      .orderBy('start_date', 'asc')
+      .get()
+
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }))
   }
 
   async getById(id) {
-    const result = await pool.query(
-      'SELECT * FROM performances WHERE id = $1',
-      [id]
-    )
-    return result.rows[0]
+    const doc = await performancesCollection.doc(id).get()
+
+    if (!doc.exists) {
+      return null
+    }
+
+    return {
+      id: doc.id,
+      ...doc.data()
+    }
   }
 
   async create(data) {
     const { name, status, startDate, satnica, category, totalTickets } = data
-    const result = await pool.query(
-      `INSERT INTO performances
-       (name, status, start_date, satnica, category, total_tickets, available_tickets)
-       VALUES ($1, $2, $3, $4, $5, $6, $6)
-       RETURNING *`,
-      [name, status, startDate, satnica, category, totalTickets]
-    )
-    return result.rows[0]
+
+    const performanceData = {
+      name,
+      status,
+      start_date: startDate,
+      satnica,
+      category,
+      total_tickets: totalTickets,
+      available_tickets: totalTickets,
+      created_at: FieldValue.serverTimestamp(),
+      updated_at: FieldValue.serverTimestamp()
+    }
+
+    const docRef = await performancesCollection.add(performanceData)
+    const doc = await docRef.get()
+
+    return {
+      id: doc.id,
+      ...doc.data()
+    }
   }
 
   async decrementAvailableTickets(performanceId) {
-    const result = await pool.query(
-      `UPDATE performances
-       SET available_tickets = available_tickets - 1
-       WHERE id = $1 AND available_tickets > 0
-       RETURNING *`,
-      [performanceId]
-    )
-    return result.rows[0]
+    const docRef = performancesCollection.doc(performanceId)
+
+    try {
+      await db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(docRef)
+
+        if (!doc.exists) {
+          throw new Error('Performance not found')
+        }
+
+        const data = doc.data()
+
+        if (data.available_tickets <= 0) {
+          throw new Error('No available tickets')
+        }
+
+        transaction.update(docRef, {
+          available_tickets: FieldValue.increment(-1),
+          updated_at: FieldValue.serverTimestamp()
+        })
+      })
+
+      const doc = await docRef.get()
+      return {
+        id: doc.id,
+        ...doc.data()
+      }
+    } catch (error) {
+      return null
+    }
   }
 
   async incrementAvailableTickets(performanceId) {
-    const result = await pool.query(
-      `UPDATE performances
-       SET available_tickets = available_tickets + 1
-       WHERE id = $1
-       RETURNING *`,
-      [performanceId]
-    )
-    return result.rows[0]
+    const docRef = performancesCollection.doc(performanceId)
+
+    await docRef.update({
+      available_tickets: FieldValue.increment(1),
+      updated_at: FieldValue.serverTimestamp()
+    })
+
+    const doc = await docRef.get()
+    return {
+      id: doc.id,
+      ...doc.data()
+    }
   }
 }
 

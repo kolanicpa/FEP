@@ -1,0 +1,4 @@
+node_modules
+.env
+firebase-credentials.json
+src/config/firebase-credentials.json

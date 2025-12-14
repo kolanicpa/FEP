@@ -1,104 +1,207 @@
-import pool from '../config/database.js'
+import db from '../config/firebase.js'
+import { FieldValue } from 'firebase-admin/firestore'
+
+const ticketsCollection = db.collection('tickets')
+const performancesCollection = db.collection('performances')
+const attendeesCollection = db.collection('attendees')
 
 class TicketModel {
   async create(data) {
     const { performanceId, attendeeId, qrCodeData, qrCodeImage } = data
 
-    const result = await pool.query(
-      `INSERT INTO tickets
-       (performance_id, attendee_id, qr_code_data, qr_code_image, sent_at)
-       VALUES ($1, $2, $3, $4, NOW())
-       RETURNING *`,
-      [performanceId, attendeeId, qrCodeData, qrCodeImage]
-    )
-    return result.rows[0]
+    const ticketData = {
+      performance_id: performanceId,
+      attendee_id: attendeeId,
+      qr_code_data: qrCodeData,
+      qr_code_image: qrCodeImage,
+      status: 'valid',
+      sent_at: FieldValue.serverTimestamp(),
+      created_at: FieldValue.serverTimestamp(),
+      updated_at: FieldValue.serverTimestamp()
+    }
+
+    const docRef = await ticketsCollection.add(ticketData)
+    const doc = await docRef.get()
+
+    return {
+      id: doc.id,
+      ...doc.data()
+    }
   }
 
   async getById(id) {
-    const result = await pool.query(
-      `SELECT t.*,
-              p.name as performance_name, p.start_date, p.satnica, p.category,
-              a.email as attendee_email
-       FROM tickets t
-       JOIN performances p ON t.performance_id = p.id
-       JOIN attendees a ON t.attendee_id = a.id
-       WHERE t.id = $1`,
-      [id]
-    )
-    return result.rows[0]
+    const ticketDoc = await ticketsCollection.doc(id).get()
+
+    if (!ticketDoc.exists) {
+      return null
+    }
+
+    const ticketData = ticketDoc.data()
+
+    const [performanceDoc, attendeeDoc] = await Promise.all([
+      performancesCollection.doc(ticketData.performance_id).get(),
+      attendeesCollection.doc(ticketData.attendee_id).get()
+    ])
+
+    const performance = performanceDoc.data()
+    const attendee = attendeeDoc.data()
+
+    return {
+      id: ticketDoc.id,
+      ...ticketData,
+      performance_name: performance?.name,
+      start_date: performance?.start_date,
+      satnica: performance?.satnica,
+      category: performance?.category,
+      attendee_email: attendee?.email
+    }
   }
 
   async getByPerformance(performanceId) {
-    const result = await pool.query(
-      `SELECT t.*, a.email as attendee_email
-       FROM tickets t
-       JOIN attendees a ON t.attendee_id = a.id
-       WHERE t.performance_id = $1
-       ORDER BY t.created_at DESC`,
-      [performanceId]
+    const snapshot = await ticketsCollection
+      .where('performance_id', '==', performanceId)
+      .orderBy('created_at', 'desc')
+      .get()
+
+    const tickets = await Promise.all(
+      snapshot.docs.map(async (doc) => {
+        const ticketData = doc.data()
+        const attendeeDoc = await attendeesCollection.doc(ticketData.attendee_id).get()
+        const attendee = attendeeDoc.data()
+
+        return {
+          id: doc.id,
+          ...ticketData,
+          attendee_email: attendee?.email
+        }
+      })
     )
-    return result.rows
+
+    return tickets
   }
 
   async checkDuplicate(performanceId, attendeeId) {
-    const result = await pool.query(
-      'SELECT * FROM tickets WHERE performance_id = $1 AND attendee_id = $2',
-      [performanceId, attendeeId]
-    )
-    return result.rows.length > 0
+    const snapshot = await ticketsCollection
+      .where('performance_id', '==', performanceId)
+      .where('attendee_id', '==', attendeeId)
+      .limit(1)
+      .get()
+
+    return !snapshot.empty
   }
 
   async delete(id) {
-    const result = await pool.query(
-      'DELETE FROM tickets WHERE id = $1 RETURNING performance_id',
-      [id]
-    )
-    return result.rows[0]
+    const ticketDoc = await ticketsCollection.doc(id).get()
+
+    if (!ticketDoc.exists) {
+      return null
+    }
+
+    const ticketData = ticketDoc.data()
+    await ticketsCollection.doc(id).delete()
+
+    return {
+      performance_id: ticketData.performance_id
+    }
   }
 
   async getByUser(userId) {
-    const result = await pool.query(
-      `SELECT t.*,
-              p.name as performance_name,
-              p.start_date,
-              p.satnica,
-              p.category,
-              a.email as attendee_email
-       FROM tickets t
-       JOIN performances p ON t.performance_id = p.id
-       JOIN attendees a ON t.attendee_id = a.id
-       WHERE t.attendee_id = $1
-       ORDER BY p.start_date DESC, t.created_at DESC`,
-      [userId]
+    const snapshot = await ticketsCollection
+      .where('attendee_id', '==', userId)
+      .orderBy('created_at', 'desc')
+      .get()
+
+    const tickets = await Promise.all(
+      snapshot.docs.map(async (doc) => {
+        const ticketData = doc.data()
+
+        const [performanceDoc, attendeeDoc] = await Promise.all([
+          performancesCollection.doc(ticketData.performance_id).get(),
+          attendeesCollection.doc(ticketData.attendee_id).get()
+        ])
+
+        const performance = performanceDoc.data()
+        const attendee = attendeeDoc.data()
+
+        return {
+          id: doc.id,
+          ...ticketData,
+          performance_name: performance?.name,
+          start_date: performance?.start_date,
+          satnica: performance?.satnica,
+          category: performance?.category,
+          attendee_email: attendee?.email
+        }
+      })
     )
-    return result.rows
+
+    return tickets.sort((a, b) => {
+      if (a.start_date !== b.start_date) {
+        return new Date(b.start_date) - new Date(a.start_date)
+      }
+      return new Date(b.created_at) - new Date(a.created_at)
+    })
   }
 
   async validateTicket(ticketId) {
-    const result = await pool.query(
-      `SELECT t.*,
-              p.name as performance_name,
-              p.start_date,
-              p.satnica,
-              a.email as attendee_email
-       FROM tickets t
-       JOIN performances p ON t.performance_id = p.id
-       JOIN attendees a ON t.attendee_id = a.id
-       WHERE t.id = $1`,
-      [ticketId]
-    )
-    return result.rows[0]
+    const ticketDoc = await ticketsCollection.doc(ticketId).get()
+
+    if (!ticketDoc.exists) {
+      return null
+    }
+
+    const ticketData = ticketDoc.data()
+
+    const [performanceDoc, attendeeDoc] = await Promise.all([
+      performancesCollection.doc(ticketData.performance_id).get(),
+      attendeesCollection.doc(ticketData.attendee_id).get()
+    ])
+
+    const performance = performanceDoc.data()
+    const attendee = attendeeDoc.data()
+
+    return {
+      id: ticketDoc.id,
+      ...ticketData,
+      performance_name: performance?.name,
+      start_date: performance?.start_date,
+      satnica: performance?.satnica,
+      attendee_email: attendee?.email
+    }
   }
 
   async markAsUsed(ticketId) {
-    const result = await pool.query(
-      `UPDATE tickets
-       SET status = 'used', used_at = NOW()
-       WHERE id = $1 AND status = 'valid'
-       RETURNING *`,
-      [ticketId]
-    )
-    return result.rows[0]
+    const docRef = ticketsCollection.doc(ticketId)
+
+    try {
+      await db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(docRef)
+
+        if (!doc.exists) {
+          throw new Error('Ticket not found')
+        }
+
+        const data = doc.data()
+
+        if (data.status !== 'valid') {
+          throw new Error('Ticket is not valid')
+        }
+
+        transaction.update(docRef, {
+          status: 'used',
+          used_at: FieldValue.serverTimestamp(),
+          updated_at: FieldValue.serverTimestamp()
+        })
+      })
+
+      const doc = await docRef.get()
+      return {
+        id: doc.id,
+        ...doc.data()
+      }
+    } catch (error) {
+      return null
+    }
   }
 }
 

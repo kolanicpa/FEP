@@ -1,31 +1,54 @@
-import pool from '../config/database.js'
+import db from '../config/firebase.js'
+import { FieldValue } from 'firebase-admin/firestore'
+
+const attendeesCollection = db.collection('attendees')
 
 class AttendeeModel {
   async findOrCreate(email) {
-    // Try to find existing
-    let result = await pool.query(
-      'SELECT * FROM attendees WHERE LOWER(email) = LOWER($1)',
-      [email]
-    )
+    const normalizedEmail = email.toLowerCase()
 
-    if (result.rows.length > 0) {
-      return result.rows[0]
+    // Try to find existing by email
+    const snapshot = await attendeesCollection
+      .where('email_lowercase', '==', normalizedEmail)
+      .limit(1)
+      .get()
+
+    if (!snapshot.empty) {
+      const doc = snapshot.docs[0]
+      return {
+        id: doc.id,
+        ...doc.data()
+      }
     }
 
-    // Create new
-    result = await pool.query(
-      'INSERT INTO attendees (email) VALUES ($1) RETURNING *',
-      [email]
-    )
-    return result.rows[0]
+    // Create new attendee
+    const attendeeData = {
+      email,
+      email_lowercase: normalizedEmail,
+      created_at: FieldValue.serverTimestamp(),
+      updated_at: FieldValue.serverTimestamp()
+    }
+
+    const docRef = await attendeesCollection.add(attendeeData)
+    const doc = await docRef.get()
+
+    return {
+      id: doc.id,
+      ...doc.data()
+    }
   }
 
   async getById(id) {
-    const result = await pool.query(
-      'SELECT * FROM attendees WHERE id = $1',
-      [id]
-    )
-    return result.rows[0]
+    const doc = await attendeesCollection.doc(id).get()
+
+    if (!doc.exists) {
+      return null
+    }
+
+    return {
+      id: doc.id,
+      ...doc.data()
+    }
   }
 }
 
