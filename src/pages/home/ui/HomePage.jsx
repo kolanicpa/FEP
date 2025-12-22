@@ -1,37 +1,9 @@
 import { Link } from '@tanstack/react-router'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
-import { SideNav } from '@/widgets/side-nav'
 
 const HomePage = () => (
   <>
-    <header className="topbar">
-      <div className="brand">
-        <span className="brand-dot" />
-        <span>FEP Web</span>
-      </div>
-      <nav className="nav">
-        <Link
-          to="/"
-          activeProps={{ className: 'nav-link active' }}
-          inactiveProps={{ className: 'nav-link' }}
-        >
-          Login
-        </Link>
-        <Link
-          to="/home"
-          activeProps={{ className: 'nav-link active' }}
-          inactiveProps={{ className: 'nav-link' }}
-        >
-          Home
-        </Link>
-      </nav>
-    </header>
-
-    <main className="layout two-col">
-      <SideNav />
-
-      <div className="content-col">
         <section id="overview" className="hero">
           <div>
             <p className="pill">
@@ -93,8 +65,6 @@ const HomePage = () => (
             </div>
           </Card>
         </section>
-      </div>
-    </main>
   </>
 )
 

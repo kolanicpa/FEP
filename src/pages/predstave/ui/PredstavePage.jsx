@@ -233,7 +233,7 @@ const PredstavePage = () => {
         })
 
   return (
-    <main className="layout narrow">
+    <>
       <div className="auth-header">
         <p className="pill">
           Repertoar <strong>Predstave</strong>
@@ -475,7 +475,7 @@ const PredstavePage = () => {
           </div>
         ) : null}
       </Card>
-    </main>
+    </>
   )
 }
 

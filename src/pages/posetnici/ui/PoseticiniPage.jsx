@@ -91,7 +91,7 @@ const PoseticiniPage = () => {
   )
 
   return (
-    <main className="layout narrow">
+    <>
       <div className="auth-header">
         <p className="pill">
           Administracija <strong>Posetnici</strong>
@@ -251,7 +251,7 @@ const PoseticiniPage = () => {
           </div>
         )}
       </Card>
-    </main>
+    </>
   )
 }
 
