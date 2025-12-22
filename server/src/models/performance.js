@@ -40,13 +40,20 @@ class PerformanceModel {
   async create(data) {
     const { title, artist, description, genre, startTime, endTime, locationId, duration, isHeadliner } = data
 
+    const startDateObj = new Date(startTime)
+    const endDateObj = endTime ? new Date(endTime) : startDateObj
+
+    if (isNaN(startDateObj.getTime())) {
+      throw new Error('Invalid start time provided')
+    }
+
     const performanceData = {
       title,
       artist,
       description,
       genre,
-      startTime: new Date(startTime),
-      endTime: new Date(endTime),
+      startTime: startDateObj,
+      endTime: endDateObj,
       locationId: locationId || '',
       duration: Number(duration) || 60,
       isHeadliner: isHeadliner || false,
@@ -75,8 +82,18 @@ class PerformanceModel {
     if (artist !== undefined) updateData.artist = artist
     if (description !== undefined) updateData.description = description
     if (genre !== undefined) updateData.genre = genre
-    if (startTime !== undefined) updateData.startTime = new Date(startTime)
-    if (endTime !== undefined) updateData.endTime = new Date(endTime)
+    if (startTime !== undefined && startTime !== '') {
+      const dateObj = new Date(startTime)
+      if (!isNaN(dateObj.getTime())) {
+        updateData.startTime = dateObj
+      }
+    }
+    if (endTime !== undefined && endTime !== '') {
+      const dateObj = new Date(endTime)
+      if (!isNaN(dateObj.getTime())) {
+        updateData.endTime = dateObj
+      }
+    }
     if (locationId !== undefined) updateData.locationId = locationId
     if (duration !== undefined) updateData.duration = Number(duration)
     if (isHeadliner !== undefined) updateData.isHeadliner = isHeadliner

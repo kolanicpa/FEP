@@ -67,14 +67,21 @@ const PredstavePage = () => {
     setModalState({ open: true, mode: 'add', editingId: null })
   }
 
+  const formatDateTimeForInput = (timestamp) => {
+    if (!timestamp) return ''
+    const date = timestamp._seconds ? new Date(timestamp._seconds * 1000) : new Date(timestamp)
+    // Format as "YYYY-MM-DDTHH:mm" for datetime-local input
+    return date.toISOString().slice(0, 16)
+  }
+
   const openEditModal = (row) => {
     setFormValues({
       title: row.title,
       artist: row.artist,
       description: row.description,
       genre: row.genre,
-      startTime: row.startTime,
-      endTime: row.endTime,
+      startTime: formatDateTimeForInput(row.startTime),
+      endTime: formatDateTimeForInput(row.endTime),
       locationId: row.locationId,
       duration: row.duration,
       isHeadliner: row.isHeadliner,
