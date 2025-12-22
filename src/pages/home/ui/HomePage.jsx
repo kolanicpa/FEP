@@ -1,6 +1,4 @@
 import { Link } from '@tanstack/react-router'
-import { CounterCard } from '@/features/counter'
-import { LogoGroup } from '@/widgets/logo-group'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { SideNav } from '@/widgets/side-nav'
@@ -37,57 +35,63 @@ const HomePage = () => (
         <section id="overview" className="hero">
           <div>
             <p className="pill">
-              Feature Driven Development <strong>starter</strong>
+              Festival <strong>Management</strong>
             </p>
-            <h1>Vite + React scaffolded for FDD</h1>
+            <h1>Dobrodošli u FEP sistem</h1>
             <p>
-              The app shell, widgets, features, and shared UI are split into clear layers so you can
-              grow the project without rewrites.
+              Sistem za upravljanje pozorišnim predstavama i festivalskim performansima. Pratite
+              izvođače, upravljajte rasporedom i izdajte ulaznice - sve na jednom mestu.
             </p>
             <div className="actions hero-actions">
-              <Link to="/">
-                <Button>Try the login flow</Button>
+              <Link to="/predstave">
+                <Button>Pogledaj predstave</Button>
               </Link>
-              <Link to="/">
-                <Button variant="ghost">Auth route</Button>
+              <Link to="/ulaznice">
+                <Button variant="ghost">Ulaznice</Button>
               </Link>
             </div>
           </div>
         </section>
 
-        <section id="structure">
-          <Card title="Structure">
+        <section id="features">
+          <Card title="Mogućnosti sistema">
             <div className="card-grid">
               <div>
-                <strong>app/</strong>
-                <p className="muted">entry point, routes, global styles & providers</p>
+                <strong>Predstave</strong>
+                <p className="muted">Upravljanje performansima, izvođačima i rasporedima</p>
               </div>
               <div>
-                <strong>pages/</strong>
-                <p className="muted">route-level composition of widgets/features</p>
+                <strong>Ulaznice</strong>
+                <p className="muted">Izdavanje i praćenje ulaznica sa QR kodovima</p>
               </div>
               <div>
-                <strong>widgets/</strong>
-                <p className="muted">page sections built from features/shared UI</p>
+                <strong>Festival program</strong>
+                <p className="muted">Organizacija i planiranje festival rasporeda</p>
               </div>
               <div>
-                <strong>features/</strong>
-                <p className="muted">isolated business capabilities</p>
+                <strong>Izvođači</strong>
+                <p className="muted">Baza izvođača i bendova</p>
               </div>
               <div>
-                <strong>shared/</strong>
-                <p className="muted">reusable UI primitives, assets, helpers</p>
+                <strong>Analitika</strong>
+                <p className="muted">Praćenje prodaje i posećenosti</p>
+              </div>
+              <div>
+                <strong>Lokacije</strong>
+                <p className="muted">Upravljanje mestima izvođenja predstava</p>
               </div>
             </div>
           </Card>
         </section>
 
-        <section id="counter">
-          <CounterCard />
-        </section>
-
-        <section id="brands">
-          <LogoGroup />
+        <section id="quick-stats">
+          <Card title="Brzi pregled">
+            <div style={{ padding: '20px' }}>
+              <p className="muted" style={{ textAlign: 'center', fontSize: '16px' }}>
+                Koristite navigaciju sa leve strane za pristup različitim delovima sistema.
+              </p>
+            </div>
+          </Card>
         </section>
       </div>
     </main>
