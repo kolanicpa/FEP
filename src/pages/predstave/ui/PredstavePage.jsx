@@ -118,19 +118,26 @@ const PredstavePage = () => {
       setLoading(true)
 
       if (modalState.mode === 'edit' && modalState.editingId) {
-        // TODO: Implement update API endpoint
+        const updatedPerformance = await performanceService.update(modalState.editingId, formValues)
+
+        // Transform Firebase data to match UI format
+        const uiPerformance = {
+          id: updatedPerformance.id,
+          title: updatedPerformance.title,
+          artist: updatedPerformance.artist,
+          description: updatedPerformance.description,
+          genre: updatedPerformance.genre,
+          startTime: updatedPerformance.startTime,
+          endTime: updatedPerformance.endTime,
+          locationId: updatedPerformance.locationId,
+          duration: updatedPerformance.duration,
+          isHeadliner: updatedPerformance.isHeadliner,
+          isActive: updatedPerformance.isActive,
+          qrCode: formValues.qrCode || buildQrCode(formValues)
+        }
+
         setPerformances((prev) =>
-          prev.map((row) =>
-            row.id === modalState.editingId
-              ? {
-                  ...row,
-                  ...formValues,
-                  duration: Number(formValues.duration) || 60,
-                  qrCode: formValues.qrCode || buildQrCode(formValues),
-                  id: row.id,
-                }
-              : row,
-          ),
+          prev.map((row) => (row.id === modalState.editingId ? uiPerformance : row))
         )
       } else {
         const newPerformance = await performanceService.create(formValues)
@@ -165,11 +172,27 @@ const PredstavePage = () => {
     }
   }
 
-  const handleDelete = (id) => {
-    setPerformances((prev) => prev.filter((row) => row.id !== id))
+  const handleDelete = async (id) => {
+    if (!confirm('Da li ste sigurni da želite da obrišete ovu predstavu?')) {
+      return
+    }
 
-    if (modalState.editingId === id) {
-      closeModal()
+    try {
+      setLoading(true)
+      await performanceService.delete(id)
+
+      setPerformances((prev) => prev.filter((row) => row.id !== id))
+
+      if (modalState.editingId === id) {
+        closeModal()
+      }
+      setError(null)
+    } catch (err) {
+      setError(err.message)
+      console.error('Failed to delete performance:', err)
+      alert('Failed to delete: ' + err.message)
+    } finally {
+      setLoading(false)
     }
   }
 

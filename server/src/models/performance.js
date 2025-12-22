@@ -64,6 +64,38 @@ class PerformanceModel {
     }
   }
 
+  async update(id, data) {
+    const { title, artist, description, genre, startTime, endTime, locationId, duration, isHeadliner, isActive } = data
+
+    const updateData = {
+      updatedAt: FieldValue.serverTimestamp()
+    }
+
+    if (title !== undefined) updateData.title = title
+    if (artist !== undefined) updateData.artist = artist
+    if (description !== undefined) updateData.description = description
+    if (genre !== undefined) updateData.genre = genre
+    if (startTime !== undefined) updateData.startTime = new Date(startTime)
+    if (endTime !== undefined) updateData.endTime = new Date(endTime)
+    if (locationId !== undefined) updateData.locationId = locationId
+    if (duration !== undefined) updateData.duration = Number(duration)
+    if (isHeadliner !== undefined) updateData.isHeadliner = isHeadliner
+    if (isActive !== undefined) updateData.isActive = isActive
+
+    await performancesCollection.doc(id).update(updateData)
+    const doc = await performancesCollection.doc(id).get()
+
+    return {
+      id: doc.id,
+      ...doc.data()
+    }
+  }
+
+  async delete(id) {
+    await performancesCollection.doc(id).delete()
+    return { id }
+  }
+
   async decrementAvailableTickets(performanceId) {
     const docRef = performancesCollection.doc(performanceId)
 

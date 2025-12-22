@@ -54,6 +54,48 @@ class PerformanceController {
       next(error)
     }
   }
+
+  async update(req, res, next) {
+    try {
+      const { id } = req.params
+      const { title, artist, description, genre, startTime, endTime, locationId, duration, isHeadliner, isActive } = req.body
+
+      const performance = await performanceModel.update(id, {
+        title,
+        artist,
+        description,
+        genre,
+        startTime,
+        endTime,
+        locationId,
+        duration,
+        isHeadliner,
+        isActive
+      })
+
+      if (!performance) {
+        return res.status(404).json({
+          error: { message: 'Performance not found' }
+        })
+      }
+
+      res.json({ performance })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  async delete(req, res, next) {
+    try {
+      const { id } = req.params
+
+      await performanceModel.delete(id)
+
+      res.status(204).send()
+    } catch (error) {
+      next(error)
+    }
+  }
 }
 
 export default new PerformanceController()
