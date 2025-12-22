@@ -5,14 +5,23 @@ const performancesCollection = db.collection('performances')
 
 class PerformanceModel {
   async getAll() {
-    const snapshot = await performancesCollection
-      .orderBy('start_date', 'asc')
-      .get()
+    const snapshot = await performancesCollection.get()
 
-    return snapshot.docs.map(doc => ({
+    // Sort in-memory to handle documents without startTime
+    const docs = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }))
+
+    return docs.sort((a, b) => {
+      if (!a.startTime) return 1
+      if (!b.startTime) return -1
+
+      const timeA = a.startTime._seconds || new Date(a.startTime).getTime() / 1000
+      const timeB = b.startTime._seconds || new Date(b.startTime).getTime() / 1000
+
+      return timeA - timeB
+    })
   }
 
   async getById(id) {
@@ -29,18 +38,21 @@ class PerformanceModel {
   }
 
   async create(data) {
-    const { name, status, startDate, satnica, category, totalTickets } = data
+    const { title, artist, description, genre, startTime, endTime, locationId, duration, isHeadliner } = data
 
     const performanceData = {
-      name,
-      status,
-      start_date: startDate,
-      satnica,
-      category,
-      total_tickets: totalTickets,
-      available_tickets: totalTickets,
-      created_at: FieldValue.serverTimestamp(),
-      updated_at: FieldValue.serverTimestamp()
+      title,
+      artist,
+      description,
+      genre,
+      startTime: new Date(startTime),
+      endTime: new Date(endTime),
+      locationId: locationId || '',
+      duration: Number(duration) || 60,
+      isHeadliner: isHeadliner || false,
+      isActive: true,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
     }
 
     const docRef = await performancesCollection.add(performanceData)

@@ -4,12 +4,15 @@ import { Button, Input, Label } from '@/shared/ui/shadcn'
 import { performanceService } from '@/shared/api/performanceService'
 
 const emptyForm = {
-  name: '',
-  status: 'Aktivna',
-  startDate: '',
-  satnica: '',
-  category: '',
-  tickets: '',
+  title: '',
+  artist: '',
+  description: '',
+  genre: '',
+  startTime: '',
+  endTime: '',
+  locationId: '',
+  duration: '60',
+  isHeadliner: false,
   qrCode: '',
 }
 
@@ -30,18 +33,25 @@ const PredstavePage = () => {
       setLoading(true)
       const data = await performanceService.getAll()
 
-      // Transform Firebase data to match UI format
+      console.log('Raw data from API:', data)
+
+      // Transform Firebase timestamp to readable format
       const transformedData = data.map(perf => ({
         id: perf.id,
-        name: perf.name,
-        status: perf.status,
-        startDate: perf.start_date,
-        satnica: perf.satnica,
-        category: perf.category,
-        tickets: perf.total_tickets,
+        title: perf.title,
+        artist: perf.artist,
+        description: perf.description,
+        genre: perf.genre,
+        startTime: perf.startTime,
+        endTime: perf.endTime,
+        locationId: perf.locationId,
+        duration: perf.duration,
+        isHeadliner: perf.isHeadliner,
+        isActive: perf.isActive,
         qrCode: perf.qr_code || ''
       }))
 
+      console.log('Transformed data:', transformedData)
       setPerformances(transformedData)
       setError(null)
     } catch (err) {
@@ -59,12 +69,15 @@ const PredstavePage = () => {
 
   const openEditModal = (row) => {
     setFormValues({
-      name: row.name,
-      status: row.status,
-      startDate: row.startDate,
-      satnica: row.satnica,
-      category: row.category,
-      tickets: row.tickets,
+      title: row.title,
+      artist: row.artist,
+      description: row.description,
+      genre: row.genre,
+      startTime: row.startTime,
+      endTime: row.endTime,
+      locationId: row.locationId,
+      duration: row.duration,
+      isHeadliner: row.isHeadliner,
       qrCode: row.qrCode,
     })
     setModalState({ open: true, mode: 'edit', editingId: row.id })
@@ -89,12 +102,11 @@ const PredstavePage = () => {
 
   const handleGenerateQr = () => {
     const qrPayload = {
-      name: formValues.name,
-      status: formValues.status,
-      startDate: formValues.startDate,
-      satnica: formValues.satnica,
-      category: formValues.category,
-      tickets: formValues.tickets,
+      title: formValues.title,
+      artist: formValues.artist,
+      genre: formValues.genre,
+      startTime: formValues.startTime,
+      duration: formValues.duration,
     }
     setFormValues((prev) => ({ ...prev, qrCode: buildQrCode(qrPayload) }))
   }
@@ -113,10 +125,8 @@ const PredstavePage = () => {
               ? {
                   ...row,
                   ...formValues,
-                  tickets: Number(formValues.tickets) || 0,
-                  qrCode:
-                    formValues.qrCode ||
-                    buildQrCode({ ...formValues, tickets: Number(formValues.tickets) || 0 }),
+                  duration: Number(formValues.duration) || 60,
+                  qrCode: formValues.qrCode || buildQrCode(formValues),
                   id: row.id,
                 }
               : row,
@@ -128,13 +138,17 @@ const PredstavePage = () => {
         // Transform Firebase data to match UI format
         const uiPerformance = {
           id: newPerformance.id,
-          name: newPerformance.name,
-          status: newPerformance.status,
-          startDate: newPerformance.start_date,
-          satnica: newPerformance.satnica,
-          category: newPerformance.category,
-          tickets: newPerformance.total_tickets,
-          qrCode: formValues.qrCode || buildQrCode({ ...formValues, tickets: newPerformance.total_tickets })
+          title: newPerformance.title,
+          artist: newPerformance.artist,
+          description: newPerformance.description,
+          genre: newPerformance.genre,
+          startTime: newPerformance.startTime,
+          endTime: newPerformance.endTime,
+          locationId: newPerformance.locationId,
+          duration: newPerformance.duration,
+          isHeadliner: newPerformance.isHeadliner,
+          isActive: newPerformance.isActive,
+          qrCode: formValues.qrCode || buildQrCode(formValues)
         }
 
         setPerformances((prev) => [...prev, uiPerformance])
@@ -159,14 +173,34 @@ const PredstavePage = () => {
     }
   }
 
+  const formatDateTime = (timestamp) => {
+    if (!timestamp) return '—'
+    const date = timestamp._seconds ? new Date(timestamp._seconds * 1000) : new Date(timestamp)
+    return date.toLocaleString('sr-RS', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
   const yearOptions = Array.from(
-    new Set(performances.map((row) => row.startDate?.slice(0, 4)).filter(Boolean)),
+    new Set(performances.map((row) => {
+      if (!row.startTime) return null
+      const date = row.startTime._seconds ? new Date(row.startTime._seconds * 1000) : new Date(row.startTime)
+      return date.getFullYear().toString()
+    }).filter(Boolean)),
   ).sort()
 
   const filteredPerformances =
     filterYear === 'all'
       ? performances
-      : performances.filter((row) => row.startDate?.startsWith(filterYear))
+      : performances.filter((row) => {
+          if (!row.startTime) return false
+          const date = row.startTime._seconds ? new Date(row.startTime._seconds * 1000) : new Date(row.startTime)
+          return date.getFullYear().toString() === filterYear
+        })
 
   return (
     <main className="layout narrow">
@@ -179,11 +213,17 @@ const PredstavePage = () => {
       </div>
 
       <Card>
+        {error && (
+          <div style={{ padding: '16px', background: '#fee', color: '#c00', marginBottom: '16px', borderRadius: '4px' }}>
+            Error: {error}
+          </div>
+        )}
+        {loading && <div style={{ padding: '16px', textAlign: 'center' }}>Loading...</div>}
         <div className="table-toolbar">
           <div>
             <h2 style={{ margin: 0 }}>Raspored predstava</h2>
             <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>
-              Dodajte, uredite ili uklonite predstave iz repertoara.
+              Dodajte, uredite ili uklonite predstave iz repertoara. ({performances.length} performances loaded)
             </p>
           </div>
           <div className="toolbar-actions">
@@ -211,12 +251,13 @@ const PredstavePage = () => {
           <table className="sh-table">
             <thead>
               <tr>
-                <th>Ime</th>
+                <th>Naziv</th>
+                <th>Izvođač</th>
+                <th>Žanr</th>
+                <th>Početak</th>
+                <th>Trajanje</th>
+                <th>Headliner</th>
                 <th>Status</th>
-                <th>Početni datum</th>
-                <th>Satnica</th>
-                <th>Kategorija</th>
-                <th>Broj ulaznica</th>
                 <th>QR kod</th>
                 <th>Uredi</th>
                 <th>Obriši</th>
@@ -225,19 +266,26 @@ const PredstavePage = () => {
             <tbody>
               {filteredPerformances.map((row) => (
                 <tr key={row.id}>
-                  <td>{row.name}</td>
+                  <td>{row.title}</td>
+                  <td>{row.artist}</td>
+                  <td>{row.genre || '—'}</td>
+                  <td>{formatDateTime(row.startTime)}</td>
+                  <td>{row.duration ? `${row.duration} min` : '—'}</td>
                   <td>
-                    <span className={`status-badge ${row.status === 'Aktivna' ? 'ok' : 'warn'}`}>
-                      {row.status}
+                    {row.isHeadliner ? (
+                      <span className="status-badge ok">Da</span>
+                    ) : (
+                      <span className="status-badge">Ne</span>
+                    )}
+                  </td>
+                  <td>
+                    <span className={`status-badge ${row.isActive ? 'ok' : 'warn'}`}>
+                      {row.isActive ? 'Aktivna' : 'Neaktivna'}
                     </span>
                   </td>
-                  <td>{row.startDate}</td>
-                  <td>{row.satnica}</td>
-                  <td>{row.category || '—'}</td>
-                  <td>{row.tickets ?? '—'}</td>
                   <td>
                     {row.qrCode ? (
-                      <img className="qr-thumb" src={row.qrCode} alt={`QR ${row.name}`} />
+                      <img className="qr-thumb" src={row.qrCode} alt={`QR ${row.title}`} />
                     ) : (
                       <Button variant="ghost" onClick={() => openEditModal(row)}>
                         Kreiraj QR
@@ -282,72 +330,102 @@ const PredstavePage = () => {
               <form className="edit-form" onSubmit={handleSubmit}>
                 <div className="edit-grid">
                   <div className="field">
-                    <Label htmlFor="name">Ime</Label>
+                    <Label htmlFor="title">Naziv</Label>
                     <Input
-                      id="name"
-                      value={formValues.name}
-                      onChange={(event) => handleInputChange('name', event.target.value)}
-                      placeholder="Naziv predstave"
+                      id="title"
+                      value={formValues.title}
+                      onChange={(event) => handleInputChange('title', event.target.value)}
+                      placeholder="Naziv performansa"
                       required
                     />
                   </div>
 
                   <div className="field">
-                    <Label htmlFor="status">Status</Label>
-                    <select
-                      id="status"
-                      className="sh-input"
-                      value={formValues.status}
-                      onChange={(event) => handleInputChange('status', event.target.value)}
-                    >
-                      <option value="Aktivna">Aktivna</option>
-                      <option value="Pauzirana">Pauzirana</option>
-                    </select>
-                  </div>
-
-                  <div className="field">
-                    <Label htmlFor="startDate">Početni datum</Label>
+                    <Label htmlFor="artist">Izvođač</Label>
                     <Input
-                      id="startDate"
-                      type="date"
-                      value={formValues.startDate}
-                      onChange={(event) => handleInputChange('startDate', event.target.value)}
+                      id="artist"
+                      value={formValues.artist}
+                      onChange={(event) => handleInputChange('artist', event.target.value)}
+                      placeholder="Ime izvođača ili benda"
                       required
                     />
                   </div>
 
                   <div className="field">
-                    <Label htmlFor="satnica">Satnica</Label>
+                    <Label htmlFor="genre">Žanr</Label>
                     <Input
-                      id="satnica"
-                      type="time"
-                      value={formValues.satnica}
-                      onChange={(event) => handleInputChange('satnica', event.target.value)}
+                      id="genre"
+                      value={formValues.genre}
+                      onChange={(event) => handleInputChange('genre', event.target.value)}
+                      placeholder="Rock, Jazz, Electronic..."
                       required
                     />
                   </div>
 
                   <div className="field">
-                    <Label htmlFor="category">Kategorija</Label>
+                    <Label htmlFor="description">Opis</Label>
                     <Input
-                      id="category"
-                      value={formValues.category}
-                      onChange={(event) => handleInputChange('category', event.target.value)}
-                      placeholder="Drama, komedija..."
+                      id="description"
+                      value={formValues.description}
+                      onChange={(event) => handleInputChange('description', event.target.value)}
+                      placeholder="Kratak opis performansa"
+                    />
+                  </div>
+
+                  <div className="field">
+                    <Label htmlFor="startTime">Početak</Label>
+                    <Input
+                      id="startTime"
+                      type="datetime-local"
+                      value={formValues.startTime}
+                      onChange={(event) => handleInputChange('startTime', event.target.value)}
                       required
                     />
                   </div>
 
                   <div className="field">
-                    <Label htmlFor="tickets">Broj ulaznica</Label>
+                    <Label htmlFor="endTime">Kraj</Label>
                     <Input
-                      id="tickets"
+                      id="endTime"
+                      type="datetime-local"
+                      value={formValues.endTime}
+                      onChange={(event) => handleInputChange('endTime', event.target.value)}
+                    />
+                  </div>
+
+                  <div className="field">
+                    <Label htmlFor="duration">Trajanje (min)</Label>
+                    <Input
+                      id="duration"
                       type="number"
                       min="0"
-                      value={formValues.tickets}
-                      onChange={(event) => handleInputChange('tickets', event.target.value)}
-                      placeholder="Na primer 120"
+                      value={formValues.duration}
+                      onChange={(event) => handleInputChange('duration', event.target.value)}
+                      placeholder="60"
                     />
+                  </div>
+
+                  <div className="field">
+                    <Label htmlFor="locationId">Lokacija ID</Label>
+                    <Input
+                      id="locationId"
+                      value={formValues.locationId}
+                      onChange={(event) => handleInputChange('locationId', event.target.value)}
+                      placeholder="ID lokacije"
+                    />
+                  </div>
+
+                  <div className="field" style={{ gridColumn: '1 / -1' }}>
+                    <Label htmlFor="isHeadliner" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        id="isHeadliner"
+                        checked={formValues.isHeadliner}
+                        onChange={(event) => handleInputChange('isHeadliner', event.target.checked)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      Headliner nastup
+                    </Label>
                   </div>
                 </div>
 

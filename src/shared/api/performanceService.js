@@ -13,12 +13,15 @@ export const performanceService = {
 
   async create(data) {
     const response = await apiClient.post('/performances', {
-      name: data.name,
-      status: data.status,
-      startDate: data.startDate,
-      satnica: data.satnica,
-      category: data.category,
-      totalTickets: Number(data.tickets)
+      title: data.title,
+      artist: data.artist,
+      description: data.description,
+      genre: data.genre,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      locationId: data.locationId,
+      duration: Number(data.duration),
+      isHeadliner: data.isHeadliner
     })
     return response.performance
   }

@@ -29,21 +29,24 @@ class PerformanceController {
 
   async create(req, res, next) {
     try {
-      const { name, status, startDate, satnica, category, totalTickets } = req.body
+      const { title, artist, description, genre, startTime, endTime, locationId, duration, isHeadliner } = req.body
 
-      if (!name || !startDate || !satnica || !totalTickets) {
+      if (!title || !artist || !genre || !startTime) {
         return res.status(400).json({
-          error: { message: 'Missing required fields: name, startDate, satnica, totalTickets' }
+          error: { message: 'Missing required fields: title, artist, genre, startTime' }
         })
       }
 
       const performance = await performanceModel.create({
-        name,
-        status: status || 'Aktivna',
-        startDate,
-        satnica,
-        category,
-        totalTickets
+        title,
+        artist,
+        description: description || '',
+        genre,
+        startTime,
+        endTime: endTime || startTime,
+        locationId,
+        duration,
+        isHeadliner
       })
 
       res.status(201).json({ performance })
